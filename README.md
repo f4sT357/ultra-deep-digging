@@ -149,6 +149,20 @@ The upstream README and parts of the repository still reflect the original deep-
 
 When determining the current behavior of the system, **the implementation under `src/` is authoritative; this document describes the intended project direction and the currently exposed foundation.**
 
+## Attribution
+
+Ultra Deep Digging is based on **Open Deep Research**, an open-source deep research implementation by **Duet**.
+
+The original project is available at:
+
+https://github.com/dzhng/deep-research
+
+Ultra Deep Digging uses the original project's research/search architecture as a starting point and is being substantially modified and extended toward a different goal: understanding the user's underlying objective and conducting the investigation necessary to produce the result they actually need.
+
+This repository is an independent fork and is **not affiliated with or endorsed by Duet or the original Open Deep Research project**.
+
+The original project's copyright notice and MIT License are retained in `LICENSE`. Changes and additions in this repository are made under the terms of that license.
+
 ## Project Structure
 
 The current codebase is TypeScript-based and includes the following major components:
