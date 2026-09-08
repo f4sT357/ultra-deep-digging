@@ -36,6 +36,53 @@ The fundamental problem Ultra Deep Digging addresses is therefore:
 
 The system should treat the initial request as evidence about the user's objective, rather than automatically treating it as the complete task specification.
 
+### 2.1 Requirement Clarification vs. Objective Discovery
+
+Ultra Deep Digging is not simply a more thorough requirements-clarification system.
+
+A requirements-clarification approach generally accepts the user's stated task as the objective and asks questions to determine how that task should be executed.
+
+For example:
+
+```text
+User: 「美味しいラーメン屋さんある？」
+        ↓
+Clarify the stated task
+        ├─ どんな味？
+        ├─ 予算は？
+        ├─ 近い方がいい？
+        ├─ 店で食べる？
+        └─ 豚骨・味噌・醤油？
+        ↓
+Find a suitable ramen restaurant
+```
+
+This is useful, but it assumes that **finding a ramen restaurant is already the correct objective**.
+
+Ultra Deep Digging instead treats the stated request as a hypothesis about the user's objective:
+
+```text
+User: 「美味しいラーメン屋さんある？」
+        ↓
+「本当にラーメンを食べたいのか？」
+        ↓
+Objective hypotheses
+        ├─ ラーメンが食べたい
+        ├─ とにかく美味しいものが食べたい
+        ├─ 手軽に美味しい食事をしたい
+        └─ その他の目的
+        ↓
+Targeted dialogue / research / reasoning
+        ↓
+Update understanding of the objective
+        ↓
+Guide toward the actual desired result
+```
+
+The distinction is therefore not simply **shallow questions versus deep questions**. It is whether the system is allowed and able to reconsider the task itself when the stated request may not represent the user's actual objective.
+
+If the user confirms that ramen itself is the objective, the system should converge on ramen-related guidance. If the user reveals that ramen was merely an example of wanting a good meal, the system should be able to abandon the initial ramen framing and pursue the broader objective.
+
 ## 3. Objective Is Initially a Hypothesis
 
 The system should not assume that the user's true objective can always be known immediately.
@@ -206,13 +253,14 @@ The following principles are currently established:
 
 1. **Understand before guiding.**
 2. **The user's literal request is not necessarily the complete objective.**
-3. **Objective understanding begins as a hypothesis.**
-4. **Objective hypotheses can be updated as new information becomes available.**
-5. **Grill Me and Research are complementary parts of the same loop.**
-6. **Questions should be purposeful rather than exhaustive.**
-7. **Research should be driven by what is necessary to understand or achieve the objective.**
-8. **The system should optimize for the user's desired result, not for prompt quality, search volume, or output length.**
-9. **The system must be able to change direction when new information changes the understanding of the problem.**
+3. **The stated task is a hypothesis, not an unquestionable premise.**
+4. **Objective understanding begins as a hypothesis.**
+5. **Objective hypotheses can be updated as new information becomes available.**
+6. **Grill Me and Research are complementary parts of the same loop.**
+7. **Questions should be purposeful rather than exhaustive.**
+8. **Research should be driven by what is necessary to understand or achieve the objective.**
+9. **The system should optimize for the user's desired result, not for prompt quality, search volume, or output length.**
+10. **The system must be able to change direction when new information changes the understanding of the problem.**
 
 ## 11. Not Yet Specified
 
