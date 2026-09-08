@@ -1,208 +1,267 @@
-# Open Deep Research
+# Ultra Deep Digging
 
-An AI-powered research assistant that performs iterative, deep research on any topic by combining search engines, web scraping, and large language models.
+**Ultra Deep Digging** is a research-oriented AI system built around a simple idea:
 
-The goal of this repo is to provide the simplest implementation of a deep research agent - e.g. an agent that can refine its research direction over time and deep dive into a topic. Goal is to keep the repo size at <500 LoC so it is easy to understand and build on top of.
+> Don't just turn a user's words into a better prompt. Dig into what the user actually needs, investigate the problem from multiple directions, and work toward the result they genuinely want.
 
-If you like this project, please consider starring it and giving me a follow on [X/Twitter](https://x.com/dzhng). This project is created by [Duet](https://duet.so).
+This repository started as a fork of an open deep-research implementation. The original search/research engine is being used as a foundation and is being redesigned into a broader **intent-to-result investigation system**.
 
-## How It Works
+> **Status:** Active development. The repository is currently transitioning from the forked deep-research architecture toward the Ultra Deep Digging architecture. Some implementation details and interfaces will change as this redesign progresses.
 
-```mermaid
-flowchart TB
-    subgraph Input
-        Q[User Query]
-        B[Breadth Parameter]
-        D[Depth Parameter]
-    end
+## What Ultra Deep Digging Is
 
-    DR[Deep Research] -->
-    SQ[SERP Queries] -->
-    PR[Process Results]
+Many AI systems treat the user's initial prompt as the specification of the task:
 
-    subgraph Results[Results]
-        direction TB
-        NL((Learnings))
-        ND((Directions))
-    end
-
-    PR --> NL
-    PR --> ND
-
-    DP{depth > 0?}
-
-    RD["Next Direction:
-    - Prior Goals
-    - New Questions
-    - Learnings"]
-
-    MR[Markdown Report]
-
-    %% Main Flow
-    Q & B & D --> DR
-
-    %% Results to Decision
-    NL & ND --> DP
-
-    %% Circular Flow
-    DP -->|Yes| RD
-    RD -->|New Context| DR
-
-    %% Final Output
-    DP -->|No| MR
-
-    %% Styling
-    classDef input fill:#7bed9f,stroke:#2ed573,color:black
-    classDef process fill:#70a1ff,stroke:#1e90ff,color:black
-    classDef recursive fill:#ffa502,stroke:#ff7f50,color:black
-    classDef output fill:#ff4757,stroke:#ff6b81,color:black
-    classDef results fill:#a8e6cf,stroke:#3b7a57,color:black
-
-    class Q,B,D input
-    class DR,SQ,PR process
-    class DP,RD recursive
-    class MR output
-    class NL,ND results
+```text
+User prompt
+    ↓
+Generate a better prompt
+    ↓
+LLM answer
 ```
 
-## Features
+Ultra Deep Digging takes a different approach:
 
-- **Iterative Research**: Performs deep research by iteratively generating search queries, processing results, and diving deeper based on findings
-- **Intelligent Query Generation**: Uses LLMs to generate targeted search queries based on research goals and previous findings
-- **Depth & Breadth Control**: Configurable parameters to control how wide (breadth) and deep (depth) the research goes
-- **Smart Follow-up**: Generates follow-up questions to better understand research needs
-- **Comprehensive Reports**: Produces detailed markdown reports with findings and sources
-- **Concurrent Processing**: Handles multiple searches and result processing in parallel for efficiency
+```text
+Initial user request
+        ↓
+Understand the actual objective
+        ↓
+Identify ambiguity, hidden requirements, constraints, and unknowns
+        ↓
+Determine what must be investigated
+        ↓
+Search and investigate from multiple directions
+        ↓
+Evaluate what was learned and what is still missing
+        ↓
+Dig deeper where necessary
+        ↓
+Produce the result that best satisfies the underlying objective
+```
+
+The objective is therefore **not prompt optimization for its own sake**. Prompting is an implementation mechanism; the actual objective is reaching a useful and correct result.
+
+## Core Principles
+
+### 1. Optimize for the result, not the prompt
+
+A polished prompt is not useful if it causes the system to solve the wrong problem.
+
+Ultra Deep Digging treats the user's desired outcome as the target and uses prompts, queries, research plans, and intermediate reasoning only as means toward that target.
+
+### 2. The initial request is evidence, not necessarily the full specification
+
+Users often know what they want to ask before they know exactly what they need to know.
+
+The system should therefore be able to distinguish between:
+
+- what the user explicitly asked for
+- what they are actually trying to accomplish
+- requirements that are implied by the task
+- information that is missing
+- assumptions that may be wrong
+- questions that need investigation before a reliable answer is possible
+
+### 3. Research should change direction when the evidence changes
+
+Research is iterative rather than a fixed list of searches.
+
+Findings from one stage should determine what deserves investigation next. New information can reveal better questions, contradictions, missing evidence, or entirely different research directions.
+
+### 4. Do not spend intelligence where deterministic work is sufficient
+
+LLM calls should be used where interpretation, synthesis, judgment, or generation is actually required.
+
+Search orchestration, state management, deduplication, progress tracking, and other deterministic operations should remain explicit system responsibilities whenever possible.
+
+### 5. Stop when the objective is satisfied
+
+More searches do not automatically mean better research. The system should ultimately optimize for sufficient evidence and useful results rather than arbitrary depth or output length.
+
+## Current Research Engine
+
+The current implementation provides the foundation for iterative web research.
+
+At a high level it currently:
+
+1. Accepts an initial research request.
+2. Generates multiple search queries based on the request and previous learnings.
+3. Searches the web through Firecrawl.
+4. Extracts information from search results.
+5. Produces structured learnings and follow-up research questions.
+6. Uses those follow-ups to recursively continue the investigation.
+7. Deduplicates accumulated learnings and visited URLs.
+8. Generates either a detailed report or a concise final answer.
+
+The research loop is breadth/depth based today, with each recursive stage using the previous research goal, follow-up directions, and accumulated learnings as context.
+
+The current implementation is intentionally treated as a **research engine foundation**, not as the final definition of Ultra Deep Digging.
+
+## Architecture Direction
+
+The long-term architecture is centered around separating the following responsibilities:
+
+```text
+User Intent
+    │
+    ▼
+Objective / Desired Outcome
+    │
+    ├── Constraints
+    ├── Requirements
+    ├── Unknowns
+    └── Success Criteria
+    │
+    ▼
+Investigation Planning
+    │
+    ▼
+Search / Retrieval / Evidence Collection
+    │
+    ▼
+Evidence Processing
+    │
+    ▼
+Gap Detection / Contradiction Detection
+    │
+    └───────────────┐
+                    │
+                    ▼
+             Further Investigation
+                    │
+                    └───────→ ...
+                    │
+                    ▼
+              Result Synthesis
+                    │
+                    ▼
+             User's Desired Result
+```
+
+This is deliberately different from treating the application as a conventional prompt enhancer.
+
+## Repository Status
+
+This project is a fork and is being substantially repurposed.
+
+The upstream README and parts of the repository still reflect the original deep-research project. This README replaces that description and documents the direction of this repository instead.
+
+When determining the current behavior of the system, **the implementation under `src/` is authoritative; this document describes the intended project direction and the currently exposed foundation.**
+
+## Project Structure
+
+The current codebase is TypeScript-based and includes the following major components:
+
+- `src/deep-research.ts` — iterative research/search engine and final result generation
+- `src/prompt.ts` — system-level research behavior
+- `src/feedback.ts` — initial follow-up question generation
+- `src/ai/providers.ts` — model/provider configuration
+- `src/api.ts` — API entry point
+- `src/run.ts` — CLI execution flow
+- `src/ai/text-splitter.ts` — text processing utilities
+
+The implementation is expected to evolve significantly as the intent, investigation, and evaluation layers are introduced.
 
 ## Requirements
 
-- Node.js environment
-- API keys for:
-  - Firecrawl API (for web search and content extraction)
-  - OpenAI API (for o3 mini model)
+- Node.js 22.x
+- A Firecrawl-compatible search/content extraction service
+- An OpenAI-compatible LLM endpoint, or another supported provider
+
+The current dependency stack includes TypeScript, the Vercel AI SDK, Firecrawl, Express, Zod, and related utilities.
 
 ## Setup
 
-### Node.js
-
-1. Clone the repository
-2. Install dependencies:
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-3. Set up environment variables in a `.env.local` file:
+Create `.env.local` from `.env.example` and configure the required providers.
 
-```bash
-FIRECRAWL_KEY="your_firecrawl_key"
-# If you want to use your self-hosted Firecrawl, add the following below:
-# FIRECRAWL_BASE_URL="http://localhost:3002"
+Example:
 
-OPENAI_KEY="your_openai_key"
+```env
+FIRECRAWL_KEY="YOUR_KEY"
+OPENAI_KEY="YOUR_KEY"
+CONTEXT_SIZE="128000"
 ```
 
-To use local LLM, comment out `OPENAI_KEY` and instead uncomment `OPENAI_ENDPOINT` and `OPENAI_MODEL`:
+For a self-hosted Firecrawl instance:
 
-- Set `OPENAI_ENDPOINT` to the address of your local server (eg."http://localhost:1234/v1")
-- Set `OPENAI_MODEL` to the name of the model loaded in your local server.
-
-### Docker
-
-1. Clone the repository
-2. Rename `.env.example` to `.env.local` and set your API keys
-
-3. Run `docker build -f Dockerfile`
-
-4. Run the Docker image:
-
-```bash
-docker compose up -d
+```env
+FIRECRAWL_BASE_URL="http://localhost:3002"
 ```
 
-5. Execute `npm run docker` in the docker service:
+For an OpenAI-compatible local or alternative endpoint:
 
-```bash
-docker exec -it deep-research npm run docker
+```env
+OPENAI_ENDPOINT="http://localhost:11434/v1"
+CUSTOM_MODEL="your-model"
 ```
 
-## Usage
+The exact provider/model configuration is defined by `src/ai/providers.ts` and may change during development.
 
-Run the research assistant:
+## Running
+
+Run the current CLI implementation with:
 
 ```bash
 npm start
 ```
 
-You'll be prompted to:
+The current CLI asks for:
 
-1. Enter your research query
-2. Specify research breadth (recommended: 3-10, default: 4)
-3. Specify research depth (recommended: 1-5, default: 2)
-4. Answer follow-up questions to refine the research direction
+- the initial research request
+- research breadth
+- research depth
+- whether the desired output is a report or a specific answer
 
-The system will then:
+For report mode, the current implementation also asks follow-up questions before beginning the research loop.
 
-1. Generate and execute search queries
-2. Process and analyze search results
-3. Recursively explore deeper based on findings
-4. Generate a comprehensive markdown report
+The current engine writes:
 
-The final report will be saved as `report.md` or `answer.md` in your working directory, depending on which modes you selected.
+- `report.md` for report mode
+- `answer.md` for answer mode
 
-### Concurrency
+These interfaces are part of the current foundation and are not necessarily the final Ultra Deep Digging UX.
 
-If you have a paid version of Firecrawl or a local version, feel free to increase the `ConcurrencyLimit` by setting the `CONCURRENCY_LIMIT` environment variable so it runs faster.
+## Development
 
-If you have a free version, you may sometimes run into rate limit errors, you can reduce the limit to 1 (but it will run a lot slower).
-
-### DeepSeek R1
-
-Deep research performs great on R1! We use [Fireworks](http://fireworks.ai) as the main provider for the R1 model. To use R1, simply set a Fireworks API key:
+Format the TypeScript source with:
 
 ```bash
-FIREWORKS_KEY="api_key"
+npm run format
 ```
 
-The system will automatically switch over to use R1 instead of `o3-mini` when the key is detected.
-
-### Custom endpoints and models
-
-There are 2 other optional env vars that lets you tweak the endpoint (for other OpenAI compatible APIs like OpenRouter or Gemini) as well as the model string.
+Run the API entry point with:
 
 ```bash
-OPENAI_ENDPOINT="custom_endpoint"
-CUSTOM_MODEL="custom_model"
+npm run api
 ```
 
-## How It Works
+Run the CLI directly with:
 
-1. **Initial Setup**
+```bash
+npm start
+```
 
-   - Takes user query and research parameters (breadth & depth)
-   - Generates follow-up questions to understand research needs better
+## Design Goal
 
-2. **Deep Research Process**
+Ultra Deep Digging aims to move the AI workflow one abstraction level above prompt generation.
 
-   - Generates multiple SERP queries based on research goals
-   - Processes search results to extract key learnings
-   - Generates follow-up research directions
+The central question is not:
 
-3. **Recursive Exploration**
+> **"How can we make this prompt better?"**
 
-   - If depth > 0, takes new research directions and continues exploration
-   - Each iteration builds on previous learnings
-   - Maintains context of research goals and findings
+It is:
 
-4. **Report Generation**
-   - Compiles all findings into a comprehensive markdown report
-   - Includes all sources and references
-   - Organizes information in a clear, readable format
-  
-## Community implementations
+> **"What is this user actually trying to achieve, what prevents us from achieving it reliably, and what investigation or processing is necessary to get there?"**
 
-**Python**: https://github.com/Finance-LLMs/deep-research-python
+That distinction is the foundation of the project.
 
 ## License
 
-MIT License - feel free to use and modify as needed.
+This repository retains the MIT license of the original project unless and until the project license is explicitly changed.
