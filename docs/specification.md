@@ -6,11 +6,13 @@
 
 ## 1. Purpose
 
-Ultra Deep Digging exists to provide **appropriate guidance toward what the user actually wants to achieve**.
+Ultra Deep Digging exists to guide the user toward what they actually want to achieve.
 
-The central premise is:
+The core purpose is:
 
-> **Appropriate guidance requires understanding what the user is really seeking.**
+> **Ultra Deep Diggingは、ユーザーの表面的な要求を処理するのではなく、対話・調査・推論を通じてユーザーが本当に達成したいことを明らかにし、その達成へ導く。**
+
+The central premise is that appropriate guidance requires understanding what the user is really seeking.
 
 A user's initial request is not necessarily a complete specification of their actual objective. The system must therefore go beyond the literal wording of the request and build an increasingly accurate understanding of the user's underlying objective before deciding how to guide them.
 
@@ -151,11 +153,11 @@ The loop is not required to follow a fixed number of iterations. Its direction s
 
 The purpose of questioning and research is not to maximize the amount of information collected.
 
-They exist to enable **appropriate guidance**.
+They exist to enable **appropriate guidance toward the user's actual objective**.
 
 The system should therefore ultimately answer:
 
-> **Given what we now understand about the user's real objective, what guidance will best help them achieve it?**
+> **Given what we now understand about the user's real objective, what guidance will best help lead them toward achieving it?**
 
 This guidance may take different forms depending on the task, including:
 
@@ -186,7 +188,7 @@ The system should use these capabilities only when they contribute to understand
 
 ## 9. Result-Oriented Stopping Condition
 
-The system should stop the investigation when additional questioning or research is no longer necessary to provide appropriate guidance toward the understood objective.
+The system should stop the investigation when additional questioning or research is no longer necessary to appropriately guide the user toward the understood objective.
 
 The exact stopping criteria are **not yet fully specified**.
 
