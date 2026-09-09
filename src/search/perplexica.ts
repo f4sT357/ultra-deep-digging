@@ -4,8 +4,8 @@ type PerplexicaProviderConfig = {
   baseUrl: string;
   providerId: string;
   chatModel: string;
-  embeddingProviderId?: string;
-  embeddingModel?: string;
+  embeddingProviderId: string;
+  embeddingModel: string;
   optimizationMode?: 'speed' | 'balanced' | 'quality';
 };
 
@@ -34,14 +34,10 @@ export class PerplexicaProvider implements SearchProvider {
           providerId: this.config.providerId,
           key: this.config.chatModel,
         },
-        ...(this.config.embeddingProviderId && this.config.embeddingModel
-          ? {
-              embeddingModel: {
-                providerId: this.config.embeddingProviderId,
-                key: this.config.embeddingModel,
-              },
-            }
-          : {}),
+        embeddingModel: {
+          providerId: this.config.embeddingProviderId,
+          key: this.config.embeddingModel,
+        },
         optimizationMode: this.config.optimizationMode ?? 'speed',
         focusMode: 'webSearch',
         sources: ['web'],
@@ -75,10 +71,12 @@ export function createPerplexicaProvider(): PerplexicaProvider {
   const baseUrl = process.env.PERPLEXICA_BASE_URL;
   const providerId = process.env.PERPLEXICA_PROVIDER_ID;
   const chatModel = process.env.PERPLEXICA_CHAT_MODEL;
+  const embeddingProviderId = process.env.PERPLEXICA_EMBEDDING_PROVIDER_ID;
+  const embeddingModel = process.env.PERPLEXICA_EMBEDDING_MODEL;
 
-  if (!baseUrl || !providerId || !chatModel) {
+  if (!baseUrl || !providerId || !chatModel || !embeddingProviderId || !embeddingModel) {
     throw new Error(
-      'Perplexica is not configured. Set PERPLEXICA_BASE_URL, PERPLEXICA_PROVIDER_ID, and PERPLEXICA_CHAT_MODEL.',
+      'Perplexica is not configured. Set PERPLEXICA_BASE_URL, PERPLEXICA_PROVIDER_ID, PERPLEXICA_CHAT_MODEL, PERPLEXICA_EMBEDDING_PROVIDER_ID, and PERPLEXICA_EMBEDDING_MODEL.',
     );
   }
 
@@ -86,8 +84,8 @@ export function createPerplexicaProvider(): PerplexicaProvider {
     baseUrl,
     providerId,
     chatModel,
-    embeddingProviderId: process.env.PERPLEXICA_EMBEDDING_PROVIDER_ID,
-    embeddingModel: process.env.PERPLEXICA_EMBEDDING_MODEL,
+    embeddingProviderId,
+    embeddingModel,
     optimizationMode:
       (process.env.PERPLEXICA_OPTIMIZATION_MODE as 'speed' | 'balanced' | 'quality') ?? 'speed',
   });
