@@ -1,10 +1,11 @@
-import FirecrawlApp, { SearchResponse } from '@mendable/firecrawl-js';
 import { generateObject } from 'ai';
 import { compact } from 'lodash-es';
 import pLimit from 'p-limit';
 import { z } from 'zod';
 
 import { getModel, trimPrompt } from './ai/providers';
+import { createPerplexicaProvider } from './search/perplexica';
+import type { SearchResult } from './search/provider';
 import { systemPrompt } from './prompt';
 
 function log(...args: any[]) {
@@ -26,17 +27,9 @@ type ResearchResult = {
   visitedUrls: string[];
 };
 
-// increase this if you have higher API rate limits
-const ConcurrencyLimit = Number(process.env.FIRECRAWL_CONCURRENCY) || 2;
+const ConcurrencyLimit = Number(process.env.SEARCH_CONCURRENCY) || 2;
+const searchProvider = createPerplexicaProvider();
 
-// Initialize Firecrawl with optional API key and optional base url
-
-const firecrawl = new FirecrawlApp({
-  apiKey: process.env.FIRECRAWL_KEY ?? '',
-  apiUrl: process.env.FIRECRAWL_BASE_URL,
-});
-
-// take en user query, return a list of SERP queries
 async function generateSerpQueries({
   query,
   numQueries = 3,
@@ -44,8 +37,6 @@ async function generateSerpQueries({
 }: {
   query: string;
   numQueries?: number;
-
-  // optional, if provided, the research will continue from the last learning
   learnings?: string[];
 }) {
   const res = await generateObject({
@@ -53,9 +44,7 @@ async function generateSerpQueries({
     system: systemPrompt(),
     prompt: `Given the following prompt from the user, generate a list of SERP queries to research the topic. Return a maximum of ${numQueries} queries, but feel free to return less if the original prompt is clear. Make sure each query is unique and not similar to each other: <prompt>${query}</prompt>\n\n${
       learnings
-        ? `Here are some learnings from previous research, use them to generate more specific queries: ${learnings.join(
-            '\n',
-          )}`
+        ? `Here are some learnings from previous research, use them to generate more specific queries: ${learnings.join('\n')}`
         : ''
     }`,
     schema: z.object({
@@ -85,7 +74,7 @@ async function processSerpResult({
   numFollowUpQuestions = 3,
 }: {
   query: string;
-  result: SearchResponse;
+  result: SearchResult;
   numLearnings?: number;
   numFollowUpQuestions?: number;
 }) {
@@ -141,7 +130,6 @@ export async function writeFinalReport({
     }),
   });
 
-  // Append the visited URLs section to the report
   const urlsSection = `\n\n## Sources\n\n${visitedUrls.map(url => `- ${url}`).join('\n')}`;
   return res.object.reportMarkdown + urlsSection;
 }
@@ -219,13 +207,8 @@ export async function deepResearch({
     serpQueries.map(serpQuery =>
       limit(async () => {
         try {
-          const result = await firecrawl.search(serpQuery.query, {
-            timeout: 15000,
-            limit: 5,
-            scrapeOptions: { formats: ['markdown'] },
-          });
+          const result = await searchProvider.search(serpQuery.query, { limit: 5 });
 
-          // Collect URLs from this search
           const newUrls = compact(result.data.map(item => item.url));
           const newBreadth = Math.ceil(breadth / 2);
           const newDepth = depth - 1;
@@ -261,17 +244,17 @@ export async function deepResearch({
               visitedUrls: allUrls,
               onProgress,
             });
-          } else {
-            reportProgress({
-              currentDepth: 0,
-              completedQueries: progress.completedQueries + 1,
-              currentQuery: serpQuery.query,
-            });
-            return {
-              learnings: allLearnings,
-              visitedUrls: allUrls,
-            };
           }
+
+          reportProgress({
+            currentDepth: 0,
+            completedQueries: progress.completedQueries + 1,
+            currentQuery: serpQuery.query,
+          });
+          return {
+            learnings: allLearnings,
+            visitedUrls: allUrls,
+          };
         } catch (e: any) {
           if (e.message && e.message.includes('Timeout')) {
             log(`Timeout error running query: ${serpQuery.query}: `, e);
