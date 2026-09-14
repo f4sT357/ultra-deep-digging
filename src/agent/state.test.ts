@@ -1,19 +1,26 @@
-import { describe, expect, it } from 'node:test';
-import { addEvidence, chooseNextAction, createInitialState, formatInvestigationContext, updateModel } from './state';
+import assert from 'node:assert';
+import { describe, it } from 'node:test';
+import {
+  addEvidence,
+  chooseNextAction,
+  createInitialState,
+  formatInvestigationContext,
+  updateModel,
+} from './state';
 
 describe('agent state', () => {
   it('starts from the surface request without inventing requirements', () => {
     const state = createInitialState('find a good cafe');
-    expect(state.model.objective).toBe('find a good cafe');
-    expect(state.model.requirements).toEqual([]);
-    expect(state.evidence).toEqual([]);
+    assert.strictEqual(state.model.objective, 'find a good cafe');
+    assert.deepStrictEqual(state.model.requirements, []);
+    assert.deepStrictEqual(state.evidence, []);
   });
 
   it('keeps evidence separate from the current model', () => {
     const state = createInitialState('find a good cafe');
     const next = addEvidence(state, { kind: 'user', content: 'quiet seating matters' });
-    expect(next.evidence).toHaveLength(1);
-    expect(next.model.preferences).toEqual([]);
+    assert.strictEqual(next.evidence.length, 1);
+    assert.deepStrictEqual(next.model.preferences, []);
   });
 
   it('routes unresolved user unknowns to grilling', () => {
@@ -25,7 +32,7 @@ describe('agent state', () => {
       unknowns: ['user: destination date'],
       confidence: 0.5,
     });
-    expect(chooseNextAction(state)).toBe('grill');
+    assert.strictEqual(chooseNextAction(state), 'grill');
   });
 
   it('routes research unknowns to research and complete models to proceed', () => {
@@ -38,7 +45,7 @@ describe('agent state', () => {
       unknowns: ['research: bus timetable'],
       confidence: 0.7,
     });
-    expect(chooseNextAction(researchState)).toBe('research');
+    assert.strictEqual(chooseNextAction(researchState), 'research');
 
     const completeState = updateModel(base, {
       objective: 'reach destination',
@@ -48,7 +55,7 @@ describe('agent state', () => {
       unknowns: [],
       confidence: 0.9,
     });
-    expect(chooseNextAction(completeState)).toBe('proceed');
+    assert.strictEqual(chooseNextAction(completeState), 'proceed');
   });
 
   it('formats the model as explicit investigation context', () => {
@@ -60,7 +67,7 @@ describe('agent state', () => {
       unknowns: ['research: timetable'],
       confidence: 0.5,
     });
-    expect(formatInvestigationContext(state)).toContain('Objective: reach destination');
-    expect(formatInvestigationContext(state)).toContain('Unknowns: research: timetable');
+    assert.match(formatInvestigationContext(state), /Objective: reach destination/);
+    assert.match(formatInvestigationContext(state), /Unknowns: research: timetable/);
   });
 });
