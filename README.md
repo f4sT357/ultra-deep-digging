@@ -139,6 +139,23 @@ Gap Detection / Contradiction Detection
              User's Desired Result
 ```
 
+The current implementation now has an explicit investigation orchestration layer around the research engine:
+
+```text
+Surface Request
+      ↓
+Objective Discovery
+      ↓
+Choose Action ──→ Grill / Research / Proceed
+      ↓
+Evidence
+      ↓
+Objective / Requirement Update
+      └──────────────→ loop
+```
+
+`src/agent/loop.ts` owns this control flow. `src/deep-research.ts` remains responsible for web research and final answer/report generation. The CLI owns interactive user input, while the API transports serializable state and user answers between requests.
+
 This is deliberately different from treating the application as a conventional prompt enhancer.
 
 ## Repository Status
@@ -167,12 +184,15 @@ The original project's copyright notice and MIT License are retained in `LICENSE
 
 The current codebase is TypeScript-based and includes the following major components:
 
+- `src/agent/state.ts` — objective model, evidence state, action selection, and investigation context formatting
+- `src/agent/objective.ts` — LLM-based objective discovery and evidence-driven model updates
+- `src/agent/loop.ts` — shared UDD investigation orchestration used by the CLI and API
 - `src/deep-research.ts` — iterative research/search engine and final result generation
 - `src/prompt.ts` — system-level research behavior
 - `src/feedback.ts` — initial follow-up question generation
 - `src/ai/providers.ts` — model/provider configuration
-- `src/api.ts` — API entry point
-- `src/run.ts` — CLI execution flow
+- `src/api.ts` — HTTP API entry point and serialization of UDD state/questions
+- `src/run.ts` — interactive CLI entry point
 - `src/ai/text-splitter.ts` — text processing utilities
 
 The implementation is expected to evolve significantly as the intent, investigation, and evaluation layers are introduced.
@@ -233,7 +253,7 @@ The current CLI asks for:
 - research depth
 - whether the desired output is a report or a specific answer
 
-For report mode, the current implementation also asks follow-up questions before beginning the research loop.
+After objective discovery, the UDD loop may ask additional user questions when the current model contains `user:` unknowns. Research-only unknowns are investigated automatically.
 
 The current engine writes:
 
@@ -241,6 +261,8 @@ The current engine writes:
 - `answer.md` for answer mode
 
 These interfaces are part of the current foundation and are not necessarily the final Ultra Deep Digging UX.
+
+The API exposes the same investigation loop. When user input is required, the response contains the current `state`, `questions`, `learnings`, and `visitedUrls`; a subsequent request can send that state together with `answers` to continue the investigation.
 
 ## Development
 
