@@ -101,7 +101,9 @@ describe('UDD investigation loop', () => {
 
     assert.strictEqual(result.status, 'proceed');
     assert.strictEqual(researchQueries.length, 1);
-    assert.match(researchQueries[0], /Surface request: trip/);
+    const [researchQuery] = researchQueries;
+    assert.ok(researchQuery);
+    assert.match(researchQuery, /Surface request: trip/);
     assert.deepStrictEqual(result.learnings, ['train departs at 09:00']);
     assert.deepStrictEqual(result.visitedUrls, ['https://example.com/timetable']);
   });
