@@ -7,114 +7,108 @@ import {
   writeFinalAnswer,
   writeFinalReport,
 } from './deep-research';
-import { generateFeedback } from './feedback';
-
-// Helper function for consistent logging
-function log(...args: any[]) {
-  console.log(...args);
-}
+import { discoverObjective, reviseObjective } from './agent/objective';
+import {
+  chooseNextAction,
+  formatInvestigationContext,
+} from './agent/state';
 
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 });
 
-// Helper function to get user input
 function askQuestion(query: string): Promise<string> {
-  return new Promise(resolve => {
-    rl.question(query, answer => {
-      resolve(answer);
-    });
-  });
+  return new Promise(resolve => rl.question(query, resolve));
 }
 
-// run the agent
+async function grill(state: Awaited<ReturnType<typeof discoverObjective>>) {
+  const questions = state.model.unknowns
+    .filter(unknown => unknown.startsWith('user:'))
+    .slice(0, 3)
+    .map(unknown => unknown.replace(/^user:\s*/, ''));
+
+  for (const question of questions) {
+    const answer = await askQuestion(`\n${question}\nYour answer: `);
+    state = await reviseObjective(state, {
+      kind: 'user',
+      content: `Question: ${question}\nAnswer: ${answer}`,
+    });
+  }
+
+  return state;
+}
+
 async function run() {
   console.log('Using model: ', getModel().modelId);
 
-  // Get initial query
-  const initialQuery = await askQuestion('What would you like to research? ');
-
-  // Get breath and depth parameters
+  const initialQuery = await askQuestion('What would you like to accomplish? ');
   const breadth =
     parseInt(
-      await askQuestion(
-        'Enter research breadth (recommended 2-10, default 4): ',
-      ),
+      await askQuestion('Enter research breadth (default 4): '),
       10,
     ) || 4;
   const depth =
-    parseInt(
-      await askQuestion('Enter research depth (recommended 1-5, default 2): '),
-      10,
-    ) || 2;
+    parseInt(await askQuestion('Enter research depth (default 2): '), 10) || 2;
   const isReport =
-    (await askQuestion(
-      'Do you want to generate a long report or a specific answer? (report/answer, default report): ',
-    )) !== 'answer';
+    (await askQuestion('Output report or answer? (report/answer, default report): ')) !==
+    'answer';
 
-  let combinedQuery = initialQuery;
-  if (isReport) {
-    log(`Creating research plan...`);
+  let state = await discoverObjective(initialQuery);
+  let learnings: string[] = [];
+  let visitedUrls: string[] = [];
 
-    // Generate follow-up questions
-    const followUpQuestions = await generateFeedback({
-      query: initialQuery,
-    });
+  for (let round = 0; round < 3; round += 1) {
+    const action = chooseNextAction(state);
 
-    log(
-      '\nTo better understand your research needs, please answer these follow-up questions:',
-    );
+    if (action === 'proceed') break;
 
-    // Collect answers to follow-up questions
-    const answers: string[] = [];
-    for (const question of followUpQuestions) {
-      const answer = await askQuestion(`\n${question}\nYour answer: `);
-      answers.push(answer);
+    if (action === 'grill') {
+      state = await grill(state);
+      continue;
     }
 
-    // Combine all information for deep research
-    combinedQuery = `
-Initial Query: ${initialQuery}
-Follow-up Questions and Answers:
-${followUpQuestions.map((q: string, i: number) => `Q: ${q}\nA: ${answers[i]}`).join('\n')}
-`;
-  }
-
-  log('\nStarting research...\n');
-
-  const { learnings, visitedUrls } = await deepResearch({
-    query: combinedQuery,
-    breadth,
-    depth,
-  });
-
-  log(`\n\nLearnings:\n\n${learnings.join('\n')}`);
-  log(`\n\nVisited URLs (${visitedUrls.length}):\n\n${visitedUrls.join('\n')}`);
-  log('Writing final report...');
-
-  if (isReport) {
-    const report = await writeFinalReport({
-      prompt: combinedQuery,
+    console.log('\nInvestigating...\n');
+    const result = await deepResearch({
+      query: `${formatInvestigationContext(state)}\n\nSurface request: ${initialQuery}`,
+      breadth,
+      depth,
       learnings,
       visitedUrls,
     });
+    learnings = result.learnings;
+    visitedUrls = result.visitedUrls;
 
+    state = await reviseObjective(state, {
+      kind: 'research',
+      content: learnings.slice(-20).join('\n'),
+    });
+  }
+
+  const finalPrompt = `${formatInvestigationContext(state)}\n\nSurface request: ${initialQuery}`;
+
+  if (isReport) {
+    const report = await writeFinalReport({
+      prompt: finalPrompt,
+      learnings,
+      visitedUrls,
+    });
     await fs.writeFile('report.md', report, 'utf-8');
-    console.log(`\n\nFinal Report:\n\n${report}`);
-    console.log('\nReport has been saved to report.md');
+    console.log(`\nFinal Report:\n\n${report}`);
   } else {
     const answer = await writeFinalAnswer({
-      prompt: combinedQuery,
+      prompt: finalPrompt,
       learnings,
     });
-
     await fs.writeFile('answer.md', answer, 'utf-8');
-    console.log(`\n\nFinal Answer:\n\n${answer}`);
-    console.log('\nAnswer has been saved to answer.md');
+    console.log(`\nFinal Answer:\n\n${answer}`);
   }
 
   rl.close();
 }
 
-run().catch(console.error);
+run().catch(error => {
+  console.error(error);
+  rl.close();
+  process.exitCode = 1;
+});
