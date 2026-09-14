@@ -1,5 +1,5 @@
-import { deepResearch } from '../deep-research';
 import { discoverObjective, reviseObjective } from './objective';
+import type { deepResearch } from '../deep-research';
 import {
   chooseNextAction,
   formatInvestigationContext,
@@ -30,7 +30,10 @@ export type AgentDependencies = {
 const defaultDependencies: AgentDependencies = {
   discover: discoverObjective,
   revise: reviseObjective,
-  research: deepResearch,
+  research: async input => {
+    const { deepResearch } = await import('../deep-research');
+    return deepResearch(input);
+  },
 };
 
 function userQuestions(state: AgentState): string[] {
