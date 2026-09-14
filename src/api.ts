@@ -1,53 +1,105 @@
 import cors from 'cors';
 import express, { Request, Response } from 'express';
 
-import { deepResearch, writeFinalAnswer,writeFinalReport } from './deep-research';
+import { writeFinalAnswer, writeFinalReport } from './deep-research';
+import { runAgent } from './agent/loop';
+import { formatInvestigationContext } from './agent/state';
+import type { AgentState } from './agent/state';
 
 const app = express();
 const port = process.env.PORT || 3051;
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Helper function for consistent logging
 function log(...args: any[]) {
   console.log(...args);
 }
 
-// API endpoint to run research
+type ResearchBody = {
+  query?: string;
+  depth?: number;
+  breadth?: number;
+  state?: AgentState;
+  answers?: string[];
+  learnings?: string[];
+  visitedUrls?: string[];
+};
+
+function validateSettings(depth: number, breadth: number) {
+  return (
+    Number.isInteger(depth) &&
+    depth > 0 &&
+    Number.isInteger(breadth) &&
+    breadth > 0
+  );
+}
+
+async function runResearch(body: ResearchBody) {
+  const depth = body.depth ?? 3;
+  const breadth = body.breadth ?? 3;
+  const surfaceRequest = body.state?.surfaceRequest ?? body.query;
+
+  if (!surfaceRequest) {
+    return { error: 'Query is required' } as const;
+  }
+
+  if (!validateSettings(depth, breadth)) {
+    return { error: 'Depth and breadth must be positive integers' } as const;
+  }
+
+  log('\nStarting UDD investigation...\n');
+
+  const result = await runAgent(
+    surfaceRequest,
+    { breadth, depth },
+    {
+      state: body.state,
+      answers: body.answers,
+      learnings: body.learnings,
+      visitedUrls: body.visitedUrls,
+    },
+  );
+
+  log(`\nStatus: ${result.status}`);
+  log(`\n\nLearnings:\n\n${result.learnings.join('\n')}`);
+  log(
+    `\n\nVisited URLs (${result.visitedUrls.length}):\n\n${result.visitedUrls.join('\n')}`,
+  );
+
+  return { result, surfaceRequest } as const;
+}
+
 app.post('/api/research', async (req: Request, res: Response) => {
   try {
-    const { query, depth = 3, breadth = 3 } = req.body;
+    const outcome = await runResearch(req.body as ResearchBody);
+    if ('error' in outcome) return res.status(400).json(outcome);
 
-    if (!query) {
-      return res.status(400).json({ error: 'Query is required' });
+    const { result, surfaceRequest } = outcome;
+    if (result.status !== 'proceed') {
+      return res.json({
+        success: true,
+        status: result.status,
+        questions: result.questions,
+        state: result.state,
+        learnings: result.learnings,
+        visitedUrls: result.visitedUrls,
+      });
     }
 
-    log('\nStarting research...\n');
-
-    const { learnings, visitedUrls } = await deepResearch({
-      query,
-      breadth,
-      depth,
-    });
-
-    log(`\n\nLearnings:\n\n${learnings.join('\n')}`);
-    log(
-      `\n\nVisited URLs (${visitedUrls.length}):\n\n${visitedUrls.join('\n')}`,
-    );
-
+    const prompt = `${formatInvestigationContext(result.state)}\n\nSurface request: ${surfaceRequest}`;
     const answer = await writeFinalAnswer({
-      prompt: query,
-      learnings,
+      prompt,
+      learnings: result.learnings,
     });
 
-    // Return the results
     return res.json({
       success: true,
+      status: result.status,
       answer,
-      learnings,
-      visitedUrls,
+      state: result.state,
+      learnings: result.learnings,
+      visitedUrls: result.visitedUrls,
     });
   } catch (error: unknown) {
     console.error('Error in research API:', error);
@@ -58,45 +110,49 @@ app.post('/api/research', async (req: Request, res: Response) => {
   }
 });
 
-// generate report API
-app.post('/api/generate-report',async(req:Request,res:Response)=>{
-  try{
-    const {query,depth = 3,breadth=3 } = req.body;
-    if(!query){
-      return res.status(400).json({error:'Query is required'});
+app.post('/api/generate-report', async (req: Request, res: Response) => {
+  try {
+    const outcome = await runResearch(req.body as ResearchBody);
+    if ('error' in outcome) return res.status(400).json(outcome);
+
+    const { result, surfaceRequest } = outcome;
+    if (result.status !== 'proceed') {
+      return res.json({
+        success: true,
+        status: result.status,
+        questions: result.questions,
+        state: result.state,
+        learnings: result.learnings,
+        visitedUrls: result.visitedUrls,
+      });
     }
-    log('\n Starting research...\n')
-    const {learnings,visitedUrls} = await deepResearch({
-      query,
-      breadth,
-      depth
-    });
-    log(`\n\nLearnings:\n\n${learnings.join('\n')}`);
-    log(
-      `\n\nVisited URLs (${visitedUrls.length}):\n\n${visitedUrls.join('\n')}`,
-    );
+
+    const prompt = `${formatInvestigationContext(result.state)}\n\nSurface request: ${surfaceRequest}`;
     const report = await writeFinalReport({
-      prompt:query,
-      learnings,
-      visitedUrls
+      prompt,
+      learnings: result.learnings,
+      visitedUrls: result.visitedUrls,
     });
 
-    return report
-    
-  }catch(error:unknown){
-    console.error("Error in generate report API:",error)
+    return res.json({
+      success: true,
+      status: result.status,
+      report,
+      state: result.state,
+      learnings: result.learnings,
+      visitedUrls: result.visitedUrls,
+    });
+  } catch (error: unknown) {
+    console.error('Error in generate report API:', error);
     return res.status(500).json({
-      error:'An error occurred during research',
-      message:error instanceof Error? error.message: String(error),
-    })
+      error: 'An error occurred during report generation',
+      message: error instanceof Error ? error.message : String(error),
+    });
   }
-})
+});
 
-
-
-// Start the server
 app.listen(port, () => {
-  console.log(`Deep Research API running on port ${port}`);
+  console.log(`Ultra Deep Digging API running on port ${port}`);
 });
 
 export default app;
