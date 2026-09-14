@@ -11,6 +11,10 @@ abstract class TextSplitter implements TextSplitterParams {
   constructor(fields?: Partial<TextSplitterParams>) {
     this.chunkSize = fields?.chunkSize ?? this.chunkSize;
     this.chunkOverlap = fields?.chunkOverlap ?? this.chunkOverlap;
+    this.validateParams();
+  }
+
+  private validateParams(): void {
     if (this.chunkOverlap >= this.chunkSize) {
       throw new Error('Cannot have chunkOverlap >= chunkSize');
     }
@@ -39,16 +43,16 @@ abstract class TextSplitter implements TextSplitterParams {
   }
 
   mergeSplits(splits: string[], separator: string): string[] {
+    this.validateParams();
     const docs: string[] = [];
     const currentDoc: string[] = [];
     let total = 0;
     for (const d of splits) {
-      const _len = d.length;
-      if (total + _len >= this.chunkSize) {
+      const len = d.length;
+      if (total + len > this.chunkSize) {
         if (total > this.chunkSize) {
           console.warn(
-            `Created a chunk of size ${total}, +
-which is longer than the specified ${this.chunkSize}`,
+            `Created a chunk of size ${total}, which is longer than the specified ${this.chunkSize}`,
           );
         }
         if (currentDoc.length > 0) {
@@ -56,12 +60,9 @@ which is longer than the specified ${this.chunkSize}`,
           if (doc !== null) {
             docs.push(doc);
           }
-          // Keep on popping if:
-          // - we have a larger chunk than in the chunk overlap
-          // - or if we still have any chunks and the length is long
           while (
             total > this.chunkOverlap ||
-            (total + _len > this.chunkSize && total > 0)
+            (total + len > this.chunkSize && total > 0)
           ) {
             total -= currentDoc[0]!.length;
             currentDoc.shift();
@@ -69,7 +70,7 @@ which is longer than the specified ${this.chunkSize}`,
         }
       }
       currentDoc.push(d);
-      total += _len;
+      total += len;
     }
     const doc = this.joinDocs(currentDoc, separator);
     if (doc !== null) {
@@ -98,7 +99,6 @@ export class RecursiveCharacterTextSplitter
   splitText(text: string): string[] {
     const finalChunks: string[] = [];
 
-    // Get appropriate separator to use
     let separator: string = this.separators[this.separators.length - 1]!;
     for (const s of this.separators) {
       if (s === '') {
@@ -111,7 +111,6 @@ export class RecursiveCharacterTextSplitter
       }
     }
 
-    // Now that we have the separator, split the text
     let splits: string[];
     if (separator) {
       splits = text.split(separator);
@@ -119,7 +118,6 @@ export class RecursiveCharacterTextSplitter
       splits = text.split('');
     }
 
-    // Now go merging things, recursively splitting longer texts.
     let goodSplits: string[] = [];
     for (const s of splits) {
       if (s.length < this.chunkSize) {
