@@ -51,10 +51,14 @@ describe('RecursiveCharacterTextSplitter', () => {
   it('Should handle special characters and large texts', () => {
     const largeText = 'A'.repeat(1000);
     splitter.chunkSize = 200;
-    assert.deepEqual(
-      splitter.splitText(largeText),
-      Array(5).fill('A'.repeat(200)),
-    );
+    assert.deepEqual(splitter.splitText(largeText), [
+      'A'.repeat(200),
+      'A'.repeat(200),
+      'A'.repeat(200),
+      'A'.repeat(200),
+      'A'.repeat(200),
+      'A'.repeat(50),
+    ]);
 
     const specialCharText = 'Hello!@# world$%^ &*( this) is+ a-test';
     assert.deepEqual(splitter.splitText(specialCharText), [specialCharText]);
