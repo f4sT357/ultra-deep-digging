@@ -4,7 +4,7 @@ import pLimit from 'p-limit';
 import { z } from 'zod';
 
 import { getModel, trimPrompt } from './ai/providers';
-import { createPerplexicaProvider } from './search/perplexica';
+import { createSearchProvider } from './search/create-provider';
 import type { SearchResult } from './search/provider';
 import { systemPrompt } from './prompt';
 
@@ -28,7 +28,7 @@ type ResearchResult = {
 };
 
 const ConcurrencyLimit = Number(process.env.SEARCH_CONCURRENCY) || 2;
-const searchProvider = createPerplexicaProvider();
+const searchProvider = createSearchProvider();
 
 async function generateSerpQueries({
   query,

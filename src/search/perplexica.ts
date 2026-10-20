@@ -11,6 +11,7 @@ type PerplexicaProviderConfig = {
 
 type PerplexicaSource = {
   pageContent?: string;
+  content?: string;
   metadata?: {
     title?: string;
     url?: string;
@@ -60,8 +61,8 @@ export class PerplexicaProvider implements SearchProvider {
       data: sources.slice(0, limit).map(source => ({
         url: source.metadata?.url,
         title: source.metadata?.title,
-        markdown: source.pageContent,
-        description: source.pageContent,
+        markdown: source.pageContent ?? source.content,
+        description: source.pageContent ?? source.content,
       })),
     };
   }

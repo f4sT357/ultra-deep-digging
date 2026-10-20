@@ -1,6 +1,8 @@
 import cors from 'cors';
 import express, { Request, Response } from 'express';
 
+import { fetchAvailableModels, getDefaultModelId } from './ai/models';
+import { withRequestedModel } from './ai/providers';
 import { writeFinalAnswer, writeFinalReport } from './deep-research';
 import { runAgent } from './agent/loop';
 import { formatInvestigationContext } from './agent/state';
@@ -11,6 +13,26 @@ const port = process.env.PORT || 3051;
 
 app.use(cors());
 app.use(express.json());
+app.use(express.static('public'));
+app.use('/api', (req, _res, next) => {
+  const modelId = typeof req.body?.modelId === 'string' ? req.body.modelId : undefined;
+  withRequestedModel(modelId, next);
+});
+
+let availableModels: string[] = [];
+
+async function refreshModelCatalog(): Promise<string[]> {
+  try {
+    availableModels = await fetchAvailableModels();
+  } catch (error) {
+    availableModels = [];
+    console.warn(
+      'Could not load models from the configured endpoint:',
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+  return availableModels;
+}
 
 function log(...args: any[]) {
   console.log(...args);
@@ -34,6 +56,11 @@ function validateSettings(depth: number, breadth: number) {
     breadth > 0
   );
 }
+
+app.get('/api/models', async (_req: Request, res: Response) => {
+  const models = await refreshModelCatalog();
+  res.json({ models, selectedModel: getDefaultModelId() });
+});
 
 async function runResearch(body: ResearchBody) {
   const depth = body.depth ?? 3;
@@ -151,8 +178,11 @@ app.post('/api/generate-report', async (req: Request, res: Response) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Ultra Deep Digging API running on port ${port}`);
+void refreshModelCatalog().then(models => {
+  console.log(`Loaded ${models.length} models from the configured LLM endpoint`);
+  app.listen(port, () => {
+    console.log(`Ultra Deep Digging API running on port ${port}`);
+  });
 });
 
 export default app;

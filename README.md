@@ -200,10 +200,10 @@ The implementation is expected to evolve significantly as the intent, investigat
 ## Requirements
 
 - Node.js 22.x
-- A Firecrawl-compatible search/content extraction service
+- SearXNG, or Vane / Perplexica when configured explicitly
 - An OpenAI-compatible LLM endpoint, or another supported provider
 
-The current dependency stack includes TypeScript, the Vercel AI SDK, Firecrawl, Express, Zod, and related utilities.
+The current dependency stack includes TypeScript, the Vercel AI SDK, Express, Zod, and related utilities.
 
 ## Setup
 
@@ -213,27 +213,89 @@ Install dependencies:
 npm install
 ```
 
-Create `.env.local` from `.env.example` and configure the required providers.
+Create `.env.local` from `.env.example` and configure the required providers. The default search provider is a direct SearXNG connection; it does not need a second LLM or embedding model.
 
 Example:
 
 ```env
-FIRECRAWL_KEY="YOUR_KEY"
-OPENAI_KEY="YOUR_KEY"
+SEARCH_PROVIDER="searxng"
+SEARXNG_BASE_URL="http://localhost:8080"
+SEARCH_LANGUAGE="ja-JP"
+OPENAI_KEY="lm-studio"
+OPENAI_ENDPOINT="http://127.0.0.1:1234/v1"
+CUSTOM_MODEL="your-loaded-model-id"
 CONTEXT_SIZE="128000"
 ```
 
-For a self-hosted Firecrawl instance:
+Enable JSON in the SearXNG `search.formats` setting for its API to return results. For this service the endpoint is `/search?q=...&format=json`.
 
-```env
-FIRECRAWL_BASE_URL="http://localhost:3002"
+This repository includes a local-only SearXNG container configuration. Copy `searxng/env.example` to `searxng/.env`, replace the example secret, then start it from the repository root:
+
+```bash
+docker compose -f searxng/docker-compose.yml up -d
 ```
 
-For an OpenAI-compatible local or alternative endpoint:
+The search provider uses SearXNG result snippets directly. This keeps the search path small and fast, while page-by-page extraction can be added later if deeper source text is needed.
+
+### Quick start on Windows
+
+Prerequisites: Node.js 22, Docker Desktop, and LM Studio. Start LM Studio's local server at `http://127.0.0.1:1234`, then download and load the chat model you want UDD to use. The model must be loaded in LM Studio when you run an investigation.
+
+Open PowerShell in the repository folder and create the local environment file:
+
+```powershell
+Copy-Item .env.example .env.local
+notepad .env.local
+```
+
+Confirm the LM Studio and SearXNG values in `.env.local`. Replace `your-loaded-model-id` with the model ID shown at `http://127.0.0.1:1234/v1/models`:
 
 ```env
-OPENAI_ENDPOINT="http://localhost:11434/v1"
-CUSTOM_MODEL="your-model"
+OPENAI_KEY="lm-studio"
+OPENAI_ENDPOINT="http://127.0.0.1:1234/v1"
+CUSTOM_MODEL="your-loaded-model-id"
+SEARCH_PROVIDER="searxng"
+SEARXNG_BASE_URL="http://localhost:8080"
+SEARCH_LANGUAGE="ja-JP"
+```
+
+Set up the local SearXNG secret once. Copy the example file, replace its placeholder with a private random string, then save it:
+
+```powershell
+Copy-Item .\searxng\env.example .\searxng\.env
+notepad .\searxng\.env
+```
+
+Start SearXNG from the repository folder:
+
+```powershell
+docker compose -f .\searxng\docker-compose.yml up -d
+```
+
+Install UDD dependencies and start the web app:
+
+```powershell
+npm install
+npm run web
+```
+
+Open [http://localhost:3051](http://localhost:3051). UDD fetches model IDs from LM Studio when the server starts and again when the page opens. Choose a model from **使用するLLM**; use **再読込** after changing the models available in LM Studio. Keep the LM Studio server and selected model running while UDD investigates.
+
+To stop UDD, press `Ctrl+C` in its PowerShell window. To stop SearXNG:
+
+```powershell
+docker compose -f .\searxng\docker-compose.yml down
+```
+
+To keep using Vane / Perplexica, set the provider explicitly and provide its model IDs:
+
+```env
+SEARCH_PROVIDER="vane"
+PERPLEXICA_BASE_URL="http://localhost:3000"
+PERPLEXICA_PROVIDER_ID="your-provider-id"
+PERPLEXICA_CHAT_MODEL="your-chat-model"
+PERPLEXICA_EMBEDDING_PROVIDER_ID="your-embedding-provider-id"
+PERPLEXICA_EMBEDDING_MODEL="your-embedding-model"
 ```
 
 The exact provider/model configuration is defined by `src/ai/providers.ts` and may change during development.
@@ -277,6 +339,16 @@ Run the API entry point with:
 ```bash
 npm run api
 ```
+
+Run the web interface and API together with:
+
+```bash
+npm run web
+```
+
+Then open `http://localhost:3051`. The interface supports answer and report output, breadth/depth settings, follow-up questions, findings, and source links. It is served by the existing Express API and uses plain HTML, CSS, and browser JavaScript without an additional frontend framework.
+
+At startup, the API requests the available models from the configured OpenAI-compatible endpoint's `/models` route. The web interface lets you choose a model for each investigation, remembers that choice in the browser, and offers a refresh button. `CUSTOM_MODEL` is used as the initial selection (and remains available if the endpoint is temporarily unreachable).
 
 Run the CLI directly with:
 

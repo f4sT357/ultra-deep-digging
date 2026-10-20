@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f6f7f8" />
+    <title>Ultra Deep Digging</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Ultra Deep Digging ホーム">
+          <span class="brand-mark" aria-hidden="true">UD</span>
+          <span>Ultra Deep Digging</span>
+        </a>
+        <span class="service-status"><span class="status-dot"></span>ローカルで実行</span>
+      </header>
+
+      <section class="intro" aria-labelledby="page-title">
+        <p class="eyebrow">調査アシスタント</p>
+        <h1 id="page-title">知りたいことを、<br class="mobile-break" />深く調べる。</h1>
+        <p class="intro-copy">目的を整理し、必要な情報をウェブから調査して回答します。</p>
+      </section>
+
+      <section class="workspace" aria-label="調査">
+        <form id="research-form" class="card form-card">
+          <label class="field-label" for="query">何を達成したいですか？</label>
+          <textarea id="query" name="query" rows="4" required maxlength="12000" placeholder="例：小さなチームで使える、プライバシー重視のタスク管理ツールを選びたい"></textarea>
+
+          <div class="model-picker">
+            <label class="field-label" for="model-select">使用するLLM</label>
+            <div class="model-picker-row">
+              <select id="model-select" name="modelId" aria-describedby="model-help" disabled>
+                <option>モデルを取得しています…</option>
+              </select>
+              <button id="reload-models-button" class="secondary-button" type="button">再読込</button>
+            </div>
+            <p id="model-help" class="field-hint" role="status" aria-live="polite">起動時にLM Studioからモデル一覧を取得します。</p>
+          </div>
+
+          <details class="settings">
+            <summary>調査の細かさ</summary>
+            <div class="settings-grid">
+              <label for="breadth">調査の幅 <span class="field-hint">検索の広さ</span></label>
+              <input id="breadth" name="breadth" type="number" min="1" max="10" value="3" />
+              <label for="depth">調査の深さ <span class="field-hint">掘り下げ回数</span></label>
+              <input id="depth" name="depth" type="number" min="1" max="5" value="2" />
+            </div>
+          </details>
+
+          <div class="form-footer">
+            <label class="select-label" for="output-mode">出力</label>
+            <select id="output-mode" name="output-mode">
+              <option value="answer">要点を回答</option>
+              <option value="report">詳しいレポート</option>
+            </select>
+            <button id="submit-button" class="primary-button" type="submit">
+              <span>調査を始める</span><span aria-hidden="true">→</span>
+            </button>
+          </div>
+        </form>
+
+        <div id="activity" class="activity" role="status" aria-live="polite" hidden>
+          <span class="spinner" aria-hidden="true"></span>
+          <div><strong id="activity-title">調査を準備しています</strong><p id="activity-copy">調査には数分かかることがあります。</p></div>
+        </div>
+
+        <section id="questions-panel" class="card questions-card" aria-labelledby="questions-title" hidden>
+          <p class="eyebrow">確認したいこと</p>
+          <h2 id="questions-title">調査の前に、少し教えてください。</h2>
+          <p class="section-copy">回答をもとに、調査の方向を調整します。</p>
+          <div id="questions-list" class="questions-list"></div>
+          <button id="continue-button" class="primary-button" type="button">回答して続ける <span aria-hidden="true">→</span></button>
+        </section>
+
+        <section id="result-panel" class="card result-card" aria-labelledby="result-title" hidden>
+          <div class="result-heading">
+            <div><p class="eyebrow">調査結果</p><h2 id="result-title">結果</h2></div>
+            <button id="new-research-button" class="secondary-button" type="button">新しい調査</button>
+          </div>
+          <div id="result-content" class="result-content"></div>
+          <details id="learnings-details" class="result-details" hidden>
+            <summary>調査でわかったこと</summary>
+            <ul id="learnings-list"></ul>
+          </details>
+          <details id="sources-details" class="result-details" hidden>
+            <summary>参照したページ</summary>
+            <ul id="sources-list"></ul>
+          </details>
+        </section>
+
+        <p class="privacy-note">調査は設定済みのローカルLLMと検索サービスを使って実行されます。</p>
+      </section>
+    </main>
+  </body>
+</html>
