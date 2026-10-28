@@ -20,7 +20,7 @@ async function inferModel(surfaceRequest: string, evidence: AgentState['evidence
   const result = await generateObject({
     model: getModel(),
     system: systemPrompt(),
-    prompt: trimPrompt(`Treat the initial request as a hypothesis, not a complete specification. Infer the current best outcome without inventing facts. Separate objective, requirements, constraints, preferences, and unknowns. Unknowns requiring the user must start with "user:"; unknowns resolvable by research must start with "research:". Keep the objective stable unless evidence supports changing the problem framing.\n\nSurface request:\n${surfaceRequest}\n\nEvidence:\n${evidenceText}${previousText}`),
+    prompt: trimPrompt(`Treat the initial request as a hypothesis, not a complete specification. Infer the current best outcome without inventing facts. Separate objective, requirements, constraints, preferences, and unknowns. Unknowns requiring the user must start with "user:"; unknowns resolvable by research must start with "research:". Keep the objective stable unless evidence supports changing the problem framing. Treat model-generated suggestions as hypotheses. Only put constraints and preferences into the model when they were explicitly stated in the user's request or answers; do not invent them. If current technical knowledge is needed to understand the user's goal correctly, add a concrete research: unknown for that knowledge gap. Do not select an optimal solution or invent technical success criteria.\n\nSurface request:\n${surfaceRequest}\n\nEvidence:\n${evidenceText}${previousText}`),
     schema: objectiveSchema,
   });
   return result.object;
