@@ -18,6 +18,8 @@ export type AgentState = {
   surfaceRequest: string;
   model: ObjectiveModel;
   evidence: Evidence[];
+  // Only an explicit user action can set this; model confidence is not confirmation.
+  confirmation?: { objective: string; requirements: string[] };
 };
 
 export type NextAction = 'grill' | 'research' | 'proceed';
@@ -41,6 +43,7 @@ export function addEvidence(state: AgentState, evidence: Evidence): AgentState {
   return {
     ...state,
     evidence: [...state.evidence, evidence],
+    confirmation: undefined,
   };
 }
 
@@ -54,6 +57,7 @@ export function updateModel(
       ...model,
       confidence: Math.max(0, Math.min(1, model.confidence)),
     },
+    confirmation: undefined,
   };
 }
 
@@ -78,4 +82,30 @@ export function formatInvestigationContext(state: AgentState): string {
     `Preferences: ${model.preferences.join('; ') || 'none identified'}`,
     `Unknowns: ${model.unknowns.join('; ') || 'none identified'}`,
   ].join('\n');
+}
+
+/**
+ * Store only what the user explicitly reviewed and accepted.
+ * This is not inferred from the model's self-reported confidence.
+ */
+export function confirmIntent(
+  state: AgentState,
+  objective: string,
+  requirements: string[],
+): AgentState {
+  const reviewedObjective = objective.trim();
+  if (!reviewedObjective) throw new Error('Objective cannot be empty');
+  const reviewedRequirements = requirements.map(value => value.trim()).filter(Boolean);
+  return {
+    ...state,
+    model: {
+      ...state.model,
+      objective: reviewedObjective,
+      requirements: reviewedRequirements,
+    },
+    confirmation: {
+      objective: reviewedObjective,
+      requirements: [...reviewedRequirements],
+    },
+  };
 }
