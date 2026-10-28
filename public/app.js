@@ -13,6 +13,13 @@ const learningsList = document.querySelector('#learnings-list');
 const sourcesDetails = document.querySelector('#sources-details');
 const sourcesList = document.querySelector('#sources-list');
 const modelSelect = document.querySelector('#model-select');
+const intentPanel = document.querySelector('#intent-panel');
+const intentObjective = document.querySelector('#intent-objective');
+const intentRequirements = document.querySelector('#intent-requirements');
+const intentHandoff = document.querySelector('#intent-handoff');
+const intentConfirmationStatus = document.querySelector('#intent-confirmation-status');
+const confirmIntentButton = document.querySelector('#confirm-intent-button');
+const copyIntentButton = document.querySelector('#copy-intent-button');
 const reloadModelsButton = document.querySelector('#reload-models-button');
 
 let investigation = null;
@@ -75,6 +82,8 @@ function setBusy(isBusy) {
   activity.hidden = !isBusy;
   submitButton.disabled = isBusy;
   continueButton.disabled = isBusy;
+  confirmIntentButton.disabled = isBusy;
+  copyIntentButton.disabled = isBusy;
   if (isBusy) {
     document.querySelector('#activity-title').textContent = investigation
       ? '回答を反映して調査しています'
@@ -172,6 +181,18 @@ function renderResult(data) {
   resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+function renderIntentReview(data) {
+  if (!data.state) return;
+  intentPanel.hidden = false;
+  resultPanel.hidden = true;
+  intentObjective.value = data.state.model.objective;
+  intentRequirements.value = data.state.model.requirements.join('\n');
+  intentHandoff.textContent = data.handoff || '';
+  intentConfirmationStatus.textContent = data.state.confirmation
+    ? '目的・要件：ユーザー確認済み。制約・好み・未知点は未確認のままです。'
+    : '目的・要件：ローカルLLMによる仮説（未確認）。';
+}
+
 async function runInvestigation(answers = []) {
   if (busy) return;
 
@@ -203,7 +224,11 @@ async function runInvestigation(answers = []) {
   resultPanel.hidden = true;
 
   try {
-    const endpoint = outputMode === 'report' ? '/api/generate-report' : '/api/research';
+    const endpoint = outputMode === 'intent'
+      ? '/api/intent'
+      : outputMode === 'report'
+        ? '/api/generate-report'
+        : '/api/research';
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -220,6 +245,21 @@ async function runInvestigation(answers = []) {
       depth: request.depth,
     };
 
+    if (outputMode === 'intent') {
+      renderIntentReview(data);
+      if (data.status === 'needs_user_input' && data.questions?.length) {
+        renderQuestions(data.questions);
+      } else {
+        questionsPanel.hidden = true;
+        intentPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      if (data.status === 'max_iterations') {
+        intentConfirmationStatus.textContent += ' 深掘り上限に達しました。目的が十分に明確とは限りません。';
+      }
+      return;
+    }
+
+    intentPanel.hidden = true;
     if (data.status === 'needs_user_input' && data.questions?.length) {
       renderQuestions(data.questions);
       return;
@@ -250,6 +290,43 @@ continueButton.addEventListener('click', () => {
   runInvestigation(answers);
 });
 
+confirmIntentButton.addEventListener('click', async () => {
+  if (busy || !investigation?.state) return;
+  const objective = intentObjective.value.trim();
+  if (!objective) {
+    intentObjective.focus();
+    return;
+  }
+  const requirements = intentRequirements.value.split('\n').map(value => value.trim()).filter(Boolean);
+  setBusy(true);
+  try {
+    const response = await fetch('/api/confirm-intent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state: investigation.state, objective, requirements }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || '確認の反映に失敗しました。');
+    investigation.state = data.state;
+    renderIntentReview(data);
+  } catch (error) {
+    intentConfirmationStatus.textContent = error instanceof Error ? error.message : String(error);
+  } finally {
+    setBusy(false);
+  }
+});
+
+copyIntentButton.addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(intentHandoff.textContent);
+    intentConfirmationStatus.textContent = investigation?.state?.confirmation
+      ? '確認済みの意図テキストをコピーしました。'
+      : '未確認の仮説を含む意図テキストをコピーしました。';
+  } catch {
+    intentConfirmationStatus.textContent = 'コピーできませんでした。下のテキストを選択してコピーしてください。';
+  }
+});
+
 modelSelect.addEventListener('change', () => {
   if (modelSelect.value) localStorage.setItem('udd.modelId', modelSelect.value);
 });
@@ -262,6 +339,7 @@ document.querySelector('#new-research-button').addEventListener('click', () => {
   queryField.value = '';
   questionsPanel.hidden = true;
   resultPanel.hidden = true;
+  intentPanel.hidden = true;
   queryField.focus();
 });
 
