@@ -20,6 +20,10 @@ const intentHandoff = document.querySelector('#intent-handoff');
 const intentConfirmationStatus = document.querySelector('#intent-confirmation-status');
 const confirmIntentButton = document.querySelector('#confirm-intent-button');
 const copyIntentButton = document.querySelector('#copy-intent-button');
+const intentLearningsDetails = document.querySelector('#intent-learnings-details');
+const intentLearningsList = document.querySelector('#intent-learnings-list');
+const intentSourcesDetails = document.querySelector('#intent-sources-details');
+const intentSourcesList = document.querySelector('#intent-sources-list');
 const reloadModelsButton = document.querySelector('#reload-models-button');
 
 let investigation = null;
@@ -139,8 +143,8 @@ function renderList(list, values) {
   });
 }
 
-function renderSources(urls) {
-  sourcesList.replaceChildren();
+function renderSources(urls, list = sourcesList, details = sourcesDetails) {
+  list.replaceChildren();
   urls.forEach(value => {
     try {
       const url = new URL(value);
@@ -152,12 +156,12 @@ function renderSources(urls) {
       link.rel = 'noopener noreferrer';
       link.textContent = url.hostname;
       item.append(link);
-      sourcesList.append(item);
+      list.append(item);
     } catch {
       // Ignore malformed source URLs.
     }
   });
-  sourcesDetails.hidden = sourcesList.childElementCount === 0;
+  details.hidden = list.childElementCount === 0;
 }
 
 function renderResult(data) {
@@ -188,6 +192,10 @@ function renderIntentReview(data) {
   intentObjective.value = data.state.model.objective;
   intentRequirements.value = data.state.model.requirements.join('\n');
   intentHandoff.textContent = data.handoff || '';
+  copyIntentButton.disabled = false;
+  renderList(intentLearningsList, data.learnings ?? investigation?.learnings ?? []);
+  intentLearningsDetails.hidden = intentLearningsList.childElementCount === 0;
+  renderSources(data.visitedUrls ?? investigation?.visitedUrls ?? [], intentSourcesList, intentSourcesDetails);
   intentConfirmationStatus.textContent = data.state.confirmation
     ? '目的・要件：ユーザー確認済み。制約・好み・未知点は未確認のままです。'
     : '目的・要件：ローカルLLMによる仮説（未確認）。';
@@ -222,6 +230,7 @@ async function runInvestigation(answers = []) {
 
   setBusy(true);
   resultPanel.hidden = true;
+  if (!investigation) intentPanel.hidden = true;
 
   try {
     const endpoint = outputMode === 'intent'
@@ -289,6 +298,15 @@ continueButton.addEventListener('click', () => {
   }
   runInvestigation(answers);
 });
+
+const markIntentEdited = () => {
+  // The visible handoff still represents the prior confirmed or draft snapshot.
+  // Do not let a user accidentally copy it as if their edits were incorporated.
+  intentConfirmationStatus.textContent = '編集中：変更を反映するには「この目的・要件を確認して反映」を押してください。';
+  copyIntentButton.disabled = true;
+};
+intentObjective.addEventListener('input', markIntentEdited);
+intentRequirements.addEventListener('input', markIntentEdited);
 
 confirmIntentButton.addEventListener('click', async () => {
   if (busy || !investigation?.state) return;
