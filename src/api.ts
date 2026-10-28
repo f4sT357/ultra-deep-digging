@@ -5,7 +5,8 @@ import { fetchAvailableModels, getDefaultModelId } from './ai/models';
 import { withRequestedModel } from './ai/providers';
 import { writeFinalAnswer, writeFinalReport } from './deep-research';
 import { runAgent } from './agent/loop';
-import { formatInvestigationContext } from './agent/state';
+import { formatIntentHandoff } from './agent/intent';
+import { confirmIntent, formatInvestigationContext } from './agent/state';
 import type { AgentState } from './agent/state';
 
 const app = express();
@@ -96,6 +97,54 @@ async function runResearch(body: ResearchBody) {
 
   return { result, surfaceRequest } as const;
 }
+
+app.post('/api/intent', async (req: Request, res: Response) => {
+  try {
+    const outcome = await runResearch(req.body as ResearchBody);
+    if ('error' in outcome) return res.status(400).json(outcome);
+
+    const { result } = outcome;
+    return res.json({
+      success: true,
+      status: result.status,
+      questions: result.questions,
+      state: result.state,
+      handoff: formatIntentHandoff(result.state),
+      learnings: result.learnings,
+      visitedUrls: result.visitedUrls,
+    });
+  } catch (error: unknown) {
+    console.error('Error in intent API:', error);
+    return res.status(500).json({
+      error: 'An error occurred during intent clarification',
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+// Confirmation is a separate, explicit user action. It does not invoke the LLM.
+app.post('/api/confirm-intent', (req: Request, res: Response) => {
+  const { state, objective, requirements } = req.body ?? {};
+  if (
+    !state || typeof state.surfaceRequest !== 'string' ||
+    !state.model || typeof state.model.objective !== 'string' ||
+    !Array.isArray(state.model.requirements) ||
+    !Array.isArray(state.model.constraints) ||
+    !Array.isArray(state.model.preferences) ||
+    !Array.isArray(state.model.unknowns) ||
+    !Array.isArray(state.evidence) ||
+    typeof objective !== 'string' || !objective.trim() ||
+    !Array.isArray(requirements) || !requirements.every((value: unknown) => typeof value === 'string')
+  ) {
+    return res.status(400).json({ error: 'Valid state, objective, and requirements are required' });
+  }
+  const confirmed = confirmIntent(state as AgentState, objective, requirements as string[]);
+  return res.json({
+    success: true,
+    state: confirmed,
+    handoff: formatIntentHandoff(confirmed),
+  });
+});
 
 app.post('/api/research', async (req: Request, res: Response) => {
   try {

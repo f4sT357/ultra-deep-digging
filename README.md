@@ -300,6 +300,20 @@ PERPLEXICA_EMBEDDING_MODEL="your-embedding-model"
 
 The exact provider/model configuration is defined by `src/ai/providers.ts` and may change during development.
 
+## Intent clarification and copy handoff
+
+The web app now offers **意図を整理（コピペ用）** as an output mode. It runs the existing Grill Me / Research loop, then returns an intent summary instead of asking the local model to solve the user's task.
+
+- The objective and requirements are initially **model hypotheses**, even if the model reports high confidence.
+- Review or edit the objective and requirements in the web UI, then click **この目的・要件を確認して反映**. Only this explicit action marks those fields as user-confirmed.
+- Constraints and preferences remain unconfirmed extracts; no personal preferences or hidden constraints should be invented.
+- Click **意図テキストをコピー** and paste the plain text into a frontier LLM. No account integration or export format is required.
+- **Research remains enabled** to fill domain-knowledge gaps when the model identifies a relevant research unknown.
+- Any new research or question-response update invalidates an earlier confirmation, requiring a fresh review.
+- The intent mode does not call `writeFinalAnswer` or `writeFinalReport`. Existing answer/report modes remain available.
+
+The app exposes `POST /api/intent` and `POST /api/confirm-intent` for the review flow. Neither endpoint automatically claims that a high model-confidence score equals human confirmation.
+
 ## Running
 
 Run the current CLI implementation with:
