@@ -19,9 +19,9 @@
       </header>
 
       <section class="intro" aria-labelledby="page-title">
-        <p class="eyebrow">調査アシスタント</p>
+        <p class="eyebrow">目的発見・調査アシスタント</p>
         <h1 id="page-title">知りたいことを、<br class="mobile-break" />深く調べる。</h1>
-        <p class="intro-copy">目的を整理し、必要な情報をウェブから調査して回答します。</p>
+        <p class="intro-copy">目的を掘り下げ、必要に応じて調査し、後段のAIに渡す意図を整理します。</p>
       </section>
 
       <section class="workspace" aria-label="調査">
@@ -53,6 +53,7 @@
           <div class="form-footer">
             <label class="select-label" for="output-mode">出力</label>
             <select id="output-mode" name="output-mode">
+              <option value="intent">意図を整理（コピペ用）</option>
               <option value="answer">要点を回答</option>
               <option value="report">詳しいレポート</option>
             </select>
@@ -73,6 +74,25 @@
           <p class="section-copy">回答をもとに、調査の方向を調整します。</p>
           <div id="questions-list" class="questions-list"></div>
           <button id="continue-button" class="primary-button" type="button">回答して続ける <span aria-hidden="true">→</span></button>
+        </section>
+
+        <section id="intent-panel" class="card result-card" aria-labelledby="intent-title" hidden>
+          <div class="result-heading">
+            <div><p class="eyebrow">意図の確認</p><h2 id="intent-title">目的・要件を確認する</h2></div>
+          </div>
+          <p class="section-copy">以下はローカルLLMの整理案です。修正したうえで「確認して反映」を押した項目のみ、確認済みになります。追加質問やResearchは従来どおり利用できます。</p>
+          <div class="intent-fields">
+            <label class="field-label" for="intent-objective">目的（編集可）</label>
+            <textarea id="intent-objective" rows="3"></textarea>
+            <label class="field-label" for="intent-requirements">要件（1行につき1件・編集可）</label>
+            <textarea id="intent-requirements" rows="4"></textarea>
+          </div>
+          <div class="intent-actions">
+            <button id="confirm-intent-button" class="secondary-button" type="button">この目的・要件を確認して反映</button>
+            <button id="copy-intent-button" class="secondary-button" type="button">意図テキストをコピー</button>
+          </div>
+          <p id="intent-confirmation-status" class="section-copy" role="status" aria-live="polite"></p>
+          <div class="result-content"><pre id="intent-handoff"></pre></div>
         </section>
 
         <section id="result-panel" class="card result-card" aria-labelledby="result-title" hidden>
